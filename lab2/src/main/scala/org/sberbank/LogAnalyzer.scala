@@ -1,12 +1,7 @@
 package org.sberbank
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.{
-  col,
-  count,
-  regexp_extract,
-  regexp_replace
-}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 class LogAnalyzer(spark: SparkSession, path: String) {
@@ -26,7 +21,7 @@ class LogAnalyzer(spark: SparkSession, path: String) {
     .schema(schema)
     .options(Map("delimiter" -> "\t"))
     .option("encoding", "utf-8")
-    .option("header", "true")
+    .option("header", "false")
     .csv(path)
 
   def logsUrlFixed: DataFrame = logs
@@ -38,7 +33,6 @@ class LogAnalyzer(spark: SparkSession, path: String) {
       "Timestamp",
       "reflect('java.net.URLDecoder','decode', URL, 'utf-8') as URL"
     )
-    .cache
 
   def domainLogs: DataFrame = logsUrlFixed
     .withColumn(

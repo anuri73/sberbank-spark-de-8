@@ -9,9 +9,14 @@ object App {
 
   val spark: SparkSession = SparkSession
     .builder()
-    .master("local[*]")
+//    .master("local[*]")
 //    .config("spark.driver.bindAddress", "127.0.0.1")
     .getOrCreate()
+
+  val tsvWithHeaderOptions: Map[String, String] = Map(
+    ("delimiter", "\t"),
+    ("header", "false")
+  )
 
   def main(args: Array[String]): Unit = {
 
@@ -49,12 +54,15 @@ object App {
               )
         )
         .orderBy(desc("RELEVANCE"), asc("DOMAIN"))
-        .select("DOMAIN", "RELEVANCE")
+        .select(
+          col("DOMAIN"),
+          format_number(col("RELEVANCE"), 15)
+        )
         .limit(200)
-        .repartition(1)
         .coalesce(1)
         .write
         .mode(SaveMode.Overwrite)
+        .options(tsvWithHeaderOptions)
         .csv(outputPath)
 
     } finally {

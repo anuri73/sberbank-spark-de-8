@@ -17,8 +17,6 @@ class AutoUsers(spark: SparkSession, path: String) {
       .schema(schema)
       .json(path)
       .select(explode(col("autousers")) as "ID")
-      .distinct()
-      .cache()
 
   def totalAmount: Long = autoLovers.count()
 }
