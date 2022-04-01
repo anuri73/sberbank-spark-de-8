@@ -10,7 +10,7 @@ object App {
   val spark: SparkSession = SparkSession
     .builder()
     .master("local[*]")
-    .config("spark.driver.bindAddress", "127.0.0.1")
+//    .config("spark.driver.bindAddress", "127.0.0.1")
     .getOrCreate()
 
   def main(args: Array[String]): Unit = {
