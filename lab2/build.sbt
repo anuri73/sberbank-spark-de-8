@@ -1,11 +1,10 @@
 lazy val root = (project in file(".")).settings(
   name := "Lab2",
   version := "0.1",
-  scalaVersion := "2.12.10",
+  scalaVersion := "2.11.12",
   organization := "org.sberbank",
   Compile / mainClass := Some("org.sberbank.App"),
   scalacOptions ++= Seq("-language:implicitConversions", "-deprecation"),
-  crossScalaVersions := Seq("2.11.12", "2.12.10"),
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", _*) => MergeStrategy.discard
     case _                        => MergeStrategy.first
