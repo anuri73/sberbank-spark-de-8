@@ -12,13 +12,9 @@ lazy val root = (project in file(".")).settings(
   }
 )
 
-val sparkVersion = "2.4.8"
+val sparkVersion = "2.4.7"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
-  "org.apache.spark" %% "spark-sql" % sparkVersion,
-  "com.lihaoyi" %% "upickle" % "0.7.1",
-  "org.scalameta" %% "munit" % "0.7.29" % Test
+  "org.apache.spark" %% "spark-sql" % sparkVersion
 )
-
-testFrameworks += new TestFramework("munit.Framework")

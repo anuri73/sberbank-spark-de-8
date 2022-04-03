@@ -1,21 +1,19 @@
 package org.sberbank
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.sberbank.udf.URL
 
 class LogAnalyzer(spark: SparkSession, path: String) {
+  import spark.implicits._
+
   private val schema: StructType = StructType(
     Array(
-      StructField("UID", LongType, nullable = true),
-      StructField("Timestamp", DoubleType, nullable = true),
-      StructField("URL", StringType, nullable = true)
+      StructField("uid", LongType, nullable = true),
+      StructField("timestamp", DoubleType, nullable = true),
+      StructField("url", StringType, nullable = true)
     )
   )
-
-  private val domainExp =
-    """http(s?):\/\/(((?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,6})"""
-  private val wwwExp = """^(www\.)?(.+?)$"""
 
   def logs: DataFrame = spark.read
     .schema(schema)
@@ -24,25 +22,12 @@ class LogAnalyzer(spark: SparkSession, path: String) {
     .option("header", "false")
     .csv(path)
 
-  def logsUrlFixed: DataFrame = logs
-    .select("UID", "Timestamp", "URL")
-    .filter(col("URL").isNotNull)
-    .withColumn("URL", regexp_replace(col("URL"), "%(?![0-9a-fA-F]{2})", "%25"))
-    .selectExpr(
-      "UID",
-      "Timestamp",
-      "reflect('java.net.URLDecoder','decode', URL, 'utf-8') as URL"
-    )
-
-  def domainLogs: DataFrame = logsUrlFixed
-    .withColumn(
-      "DOMAIN",
-      regexp_extract(
-        regexp_extract(col("URL"), domainExp, 2),
-        wwwExp,
-        2
-      )
-    )
+  def domainLogs: DataFrame = logs
+    .withColumn("url", URL.decode($"url"))
+    .filter($"url".startsWith("http"))
+    .withColumn("domain", URL.getDomain($"url"))
+    .drop("url")
+    .where($"domain".isNotNull and $"uid".isNotNull)
 
   def totalLogAmount: Long = domainLogs.count()
 
@@ -50,12 +35,12 @@ class LogAnalyzer(spark: SparkSession, path: String) {
     domainLogs
       .join(
         autoLovers,
-        col("UID") === col("ID"),
+        $"uid" === $"auto_lovers",
         "left"
       )
 
   def autoLoversVisitAmount(autoLovers: DataFrame): Long =
     withAutoLoverVisits(autoLovers)
-      .where(col("ID").isNotNull)
+      .where($"auto_lovers".isNotNull)
       .count()
 }

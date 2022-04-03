@@ -4,7 +4,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-class AutoUsers(spark: SparkSession, path: String) {
+class AutoLovers(spark: SparkSession, path: String) {
+  import spark.implicits._
 
   private val schema: StructType = StructType(
     Array(
@@ -16,7 +17,7 @@ class AutoUsers(spark: SparkSession, path: String) {
     spark.read
       .schema(schema)
       .json(path)
-      .select(explode(col("autousers")) as "ID")
+      .select(explode($"autousers") as "auto_lovers")
 
   def totalAmount: Long = autoLovers.count()
 }

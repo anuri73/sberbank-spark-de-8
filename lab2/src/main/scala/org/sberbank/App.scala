@@ -1,11 +1,13 @@
 package org.sberbank
 
 import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{lit, _}
 
 import java.io.{BufferedWriter, File, FileWriter}
 
 object App {
+
+  private val precision = 15
 
   val spark: SparkSession = SparkSession
     .builder()
@@ -19,51 +21,54 @@ object App {
   )
 
   def main(args: Array[String]): Unit = {
+    import spark.implicits._
 
-    val autoUsersPath = args(0)
+    val autoLoversSourceFile = args(0)
 
-    val logPath = args(1)
+    val logsSourceFile = args(1)
 
-    val outputPath = args(2)
+    val resultDestinationFile = args(2)
 
     try {
-      val autoLovers = new AutoUsers(spark, autoUsersPath).autoLovers
+      val autoLovers = new AutoLovers(spark, autoLoversSourceFile).autoLovers
 
-      val logs = new LogAnalyzer(spark, logPath)
+      val logs = new LogAnalyzer(spark, logsSourceFile)
 
-      val totalLogAmount = logs.totalLogAmount
+      val totalAutoLoversVisitedAmount = logs.autoLoversVisitAmount(autoLovers)
 
-      val autoLoverVisitLogAmount = logs.autoLoversVisitAmount(autoLovers)
-
-      logs
+      val topDomains = logs
         .withAutoLoverVisits(autoLovers)
-        .select("DOMAIN", "ID", "UID")
-        .groupBy("DOMAIN")
-        .agg(
-          count("ID") as "AUTO_LOVER_VISITED_AMOUNT",
-          count("UID") as "TOTAL_VISITED_AMOUNT"
-        )
-        .withColumn(
-          "RELEVANCE",
-          pow(col("AUTO_LOVER_VISITED_AMOUNT") / lit(totalLogAmount), 2)
-            /
-              (
-                (col("TOTAL_VISITED_AMOUNT") / lit(totalLogAmount))
-                  *
-                    (lit(autoLoverVisitLogAmount) / lit(totalLogAmount))
-              )
-        )
-        .orderBy(desc("RELEVANCE"), asc("DOMAIN"))
         .select(
-          col("DOMAIN"),
-          format_number(col("RELEVANCE"), 15)
+          $"domain",
+          $"auto_lovers",
+          $"uid"
         )
+        .groupBy("domain")
+        .agg(
+          count("auto_lovers") as "auto_lovers_visited_amount",
+          count("uid") as "visited_amount"
+        )
+        .withColumn("numerator", pow($"auto_lovers_visited_amount", 2))
+        .withColumn("denumerator", $"visited_amount" * lit(totalAutoLoversVisitedAmount))
+        .where($"numerator" > 0.0 and $"denumerator" > 0.0)
+        .withColumn(
+          "relevance",
+          format_number(
+            $"numerator" / $"denumerator",
+            precision
+          )
+        )
+        .select("domain", "relevance")
+        .orderBy($"relevance".desc, $"domain".asc)
         .limit(200)
-        .coalesce(1)
-        .write
-        .mode(SaveMode.Overwrite)
-        .options(tsvWithHeaderOptions)
-        .csv(outputPath)
+
+      writeFile(
+        resultDestinationFile,
+        topDomains
+          .map(_.mkString("\t"))
+          .collect()
+          .mkString("\n")
+      )
 
     } finally {
       spark.close
